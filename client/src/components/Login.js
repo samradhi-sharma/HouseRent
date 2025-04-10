@@ -44,25 +44,31 @@ const Login = () => {
         console.log('Login successful. User data:', res.data.user);
         
         // Make sure user data has all required fields
-        if (!res.data.user.id || !res.data.user.role) {
+        if ((!res.data.user.id && !res.data.user._id) || !res.data.user.role) {
           console.error('Invalid user data in login response:', res.data.user);
           setError('Server returned invalid user data. Please contact support.');
           setLoading(false);
           return;
         }
         
+        // Standardize the user object - ensure it has an id field
+        const userData = { ...res.data.user };
+        if (!userData.id && userData._id) {
+          userData.id = userData._id;
+        }
+        
         // Call login function from auth context
-        login(res.data.token, res.data.user);
+        login(res.data.token, userData);
         
         // Redirect based on role
-        if (res.data.user.role === 'renter') {
-          console.log('Navigating to renter dashboard');
-          navigate('/renter/dashboard');
-        } else if (res.data.user.role === 'owner') {
-          console.log('Navigating to owner dashboard');
+        if (userData.role === 'renter') {
+          console.log('Navigating to dashboard');
+          navigate('/dashboard');
+        } else if (userData.role === 'owner') {
+          console.log('Navigating to dashboard');
           navigate('/dashboard');
         } else {
-          console.log('Navigating to default dashboard');
+          console.log('Navigating to dashboard');
           navigate('/dashboard');
         }
       } else {

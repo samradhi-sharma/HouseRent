@@ -28,7 +28,11 @@ const RenterDashboard = () => {
         
         if (isMounted) {
           if (res.data && Array.isArray(res.data.data)) {
-            setProperties(res.data.data);
+            // Filter out any properties with invalid or missing data
+            const validProperties = res.data.data.filter(property => 
+              property && property._id && property.title
+            );
+            setProperties(validProperties);
           } else {
             console.error('Unexpected properties response format:', res.data);
             setProperties([]);
@@ -69,7 +73,11 @@ const RenterDashboard = () => {
         
         if (isMounted) {
           if (res.data && Array.isArray(res.data.data)) {
-            setBookings(res.data.data);
+            // Filter out any bookings with invalid or missing data
+            const validBookings = res.data.data.filter(booking => 
+              booking && booking._id
+            );
+            setBookings(validBookings);
           } else {
             console.error('Unexpected bookings response format:', res.data);
             setBookings([]);

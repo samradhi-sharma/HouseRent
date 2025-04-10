@@ -64,14 +64,18 @@ export const AuthProvider = ({ children }) => {
             const parsedUser = JSON.parse(userData);
             console.log('User data from localStorage:', parsedUser);
             
-            // Validate user data has required fields
-            if (!parsedUser || !parsedUser.id || !parsedUser.role) {
+            // Validate user data has required fields - check for _id field as well as id
+            if (!parsedUser || (!parsedUser.id && !parsedUser._id) || !parsedUser.role) {
               console.error('Invalid user data in localStorage:', parsedUser);
               localStorage.removeItem('user');
               localStorage.removeItem('token');
               setIsAuthenticated(false);
               setUser(null);
             } else {
+              // Make sure we standardize on id field
+              if (parsedUser._id && !parsedUser.id) {
+                parsedUser.id = parsedUser._id;
+              }
               setUser(parsedUser);
             }
           } catch (error) {

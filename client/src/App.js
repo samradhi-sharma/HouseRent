@@ -67,7 +67,7 @@ const DashboardRouter = () => {
   
   if (user.role === 'renter') {
     console.log("Directing to RenterDashboard");
-    return <Navigate to="/renter/dashboard" />;
+    return <RenterDashboard />;
   } else if (user.role === 'owner') {
     console.log("Directing to Owner Dashboard");
     // Navigate to owner dashboard when implemented
