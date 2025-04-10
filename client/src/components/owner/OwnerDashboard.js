@@ -1,0 +1,368 @@
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+
+const OwnerDashboard = () => {
+  const [properties, setProperties] = useState([]);
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [bookingsLoading, setBookingsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('properties');
+  const { user, logout } = useAuth();
+
+  useEffect(() => {
+    const fetchOwnerProperties = async () => {
+      try {
+        setLoading(true);
+        console.log('Fetching owner properties');
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+          throw new Error('Authentication token not found');
+        }
+        
+        const res = await axios.get('http://localhost:5000/api/properties/owner', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        console.log('Owner properties response:', res.data);
+        
+        if (res.data && res.data.data) {
+          setProperties(res.data.data);
+        }
+      } catch (err) {
+        console.error('Error fetching owner properties:', err);
+        setError('Failed to load your properties. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const fetchBookingRequests = async () => {
+      try {
+        setBookingsLoading(true);
+        console.log('Fetching booking requests for owner');
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+          throw new Error('Authentication token not found');
+        }
+        
+        const res = await axios.get('http://localhost:5000/api/bookings/owner', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        console.log('Owner bookings response:', res.data);
+        
+        if (res.data && res.data.data) {
+          setBookings(res.data.data);
+        }
+      } catch (err) {
+        console.error('Error fetching booking requests:', err);
+        setError('Failed to load booking requests. Please try again later.');
+      } finally {
+        setBookingsLoading(false);
+      }
+    };
+
+    fetchOwnerProperties();
+    fetchBookingRequests();
+  }, []);
+
+  const handleStatusUpdate = async (bookingId, newStatus) => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+      
+      await axios.put(
+        `http://localhost:5000/api/bookings/${bookingId}/status`,
+        { status: newStatus },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      // Update local state
+      setBookings(bookings.map(booking => 
+        booking._id === bookingId 
+          ? { ...booking, status: newStatus } 
+          : booking
+      ));
+      
+    } catch (err) {
+      console.error('Error updating booking status:', err);
+      setError('Failed to update booking status. Please try again.');
+    }
+  };
+
+  const getPendingBookingsCount = () => {
+    return bookings.filter(booking => booking.status === 'pending').length;
+  };
+
+  const getStatusBadgeClass = (status) => {
+    switch (status) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'approved':
+        return 'bg-green-100 text-green-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      case 'cancelled':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  if (loading && bookingsLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-gray-100 min-h-screen">
+      <header className="bg-white shadow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex justify-between items-center">
+            <h1 className="text-3xl font-bold text-gray-900">Property Owner Dashboard</h1>
+            <button 
+              onClick={logout}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
+            >
+              Logout
+            </button>
+          </div>
+          <p className="mt-1 text-gray-500">Welcome back, {user?.name || 'Owner'}</p>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {error && (
+          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
+            <p>{error}</p>
+          </div>
+        )}
+
+        <div className="mb-6 flex justify-end">
+          <Link
+            to="/properties/add"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+          >
+            Add New Property
+          </Link>
+        </div>
+
+        <div className="bg-white shadow rounded-lg overflow-hidden">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex">
+              <button
+                onClick={() => setActiveTab('properties')}
+                className={`w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm ${
+                  activeTab === 'properties'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                My Properties ({properties.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('bookings')}
+                className={`w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm ${
+                  activeTab === 'bookings'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Booking Requests 
+                {getPendingBookingsCount() > 0 && (
+                  <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                    {getPendingBookingsCount()} pending
+                  </span>
+                )}
+              </button>
+            </nav>
+          </div>
+
+          {activeTab === 'properties' && (
+            <div className="p-4">
+              {properties.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {properties.map((property) => (
+                    <div key={property._id} className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="h-48 w-full relative">
+                        <img
+                          src={property.photos[0] || "https://via.placeholder.com/300x200?text=No+Image"}
+                          alt={property.title}
+                          className="h-full w-full object-cover rounded-t-lg"
+                        />
+                        <div className="absolute top-2 right-2 bg-indigo-600 text-white px-2 py-1 rounded text-sm font-bold">
+                          ${property.price}/month
+                        </div>
+                      </div>
+                      <div className="p-4">
+                        <h3 className="text-lg font-bold text-gray-900 mb-1">{property.title}</h3>
+                        <p className="text-sm text-gray-500 mb-2">
+                          {property.location.city}, {property.location.state}
+                        </p>
+                        <div className="flex space-x-4 text-sm text-gray-700 mb-3">
+                          <span>{property.bedrooms} bed</span>
+                          <span>{property.bathrooms} bath</span>
+                          <span>{property.area} sqft</span>
+                        </div>
+                        <div className="flex justify-between mt-4">
+                          <Link
+                            to={`/properties/${property._id}`}
+                            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                          >
+                            View
+                          </Link>
+                          <Link
+                            to={`/properties/edit/${property._id}`}
+                            className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                          >
+                            Edit
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">You haven't added any properties yet.</p>
+                  <p className="mt-2 text-sm text-gray-500">
+                    Click on "Add New Property" to get started.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'bookings' && (
+            <div className="p-4">
+              {bookingsLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600"></div>
+                </div>
+              ) : bookings.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Property
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Renter
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Date & Time
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Requested On
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {bookings.map((booking) => (
+                        <tr key={booking._id}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="h-10 w-10 flex-shrink-0">
+                                <img
+                                  className="h-10 w-10 rounded-full object-cover"
+                                  src={booking.property?.photos?.[0] || "https://via.placeholder.com/40?text=Property"}
+                                  alt=""
+                                />
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {booking.property?.title || 'Property unavailable'}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {booking.property?.location?.city}, {booking.property?.location?.state}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">
+                              {booking.user?.name || 'Unknown user'}
+                            </div>
+                            <div className="text-sm text-gray-500">{booking.contactEmail}</div>
+                            <div className="text-sm text-gray-500">{booking.contactPhone}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {new Date(booking.preferredDate).toLocaleDateString()}
+                            </div>
+                            <div className="text-sm text-gray-500">{booking.preferredTime}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(booking.status)}`}>
+                              {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(booking.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            {booking.status === 'pending' && (
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => handleStatusUpdate(booking._id, 'approved')}
+                                  className="text-green-600 hover:text-green-900"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => handleStatusUpdate(booking._id, 'rejected')}
+                                  className="text-red-600 hover:text-red-900"
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            )}
+                            {booking.status !== 'pending' && (
+                              <span className="text-gray-500">No actions available</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">You don't have any booking requests yet.</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default OwnerDashboard; 
