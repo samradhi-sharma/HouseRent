@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { redirectToDashboard } from '../utils/authRedirect';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -57,20 +58,19 @@ const Login = () => {
           userData.id = userData._id;
         }
         
+        // Check if the user is an owner who hasn't been approved yet
+        if (userData.role === 'owner' && userData.isApproved === false) {
+          login(res.data.token, userData);
+          setError('Your owner account is pending approval. Please wait for an administrator to approve your account.');
+          setLoading(false);
+          return;
+        }
+        
         // Call login function from auth context
         login(res.data.token, userData);
         
-        // Redirect based on role
-        if (userData.role === 'renter') {
-          console.log('Navigating to dashboard');
-          navigate('/dashboard');
-        } else if (userData.role === 'owner') {
-          console.log('Navigating to dashboard');
-          navigate('/dashboard');
-        } else {
-          console.log('Navigating to dashboard');
-          navigate('/dashboard');
-        }
+        // Use the redirect utility function to handle redirection based on role
+        redirectToDashboard(userData, navigate);
       } else {
         console.error('Login response missing token or user data:', res.data);
         setError('Login failed. Please try again.');

@@ -12,6 +12,7 @@ const Register = () => {
     role: 'renter' // Default role
   });
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -25,6 +26,7 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccessMessage('');
     setLoading(true);
 
     // Client-side validation
@@ -45,15 +47,26 @@ const Register = () => {
       const requestData = { name, email, password, role };
       console.log('Sending registration request:', requestData);
       
-      const res = await axios.post('http://localhost:5000/api/auth/register', requestData);
+      // Use relative URL to avoid hardcoded ports that may change
+      const res = await axios.post('/api/auth/register', requestData);
 
       console.log('Registration response:', res.data);
 
       if (res.data && res.data.token) {
-        // Pass token and user data to login function
-        login(res.data.token, res.data.user);
-        console.log('User registered successfully:', res.data.user);
-        navigate('/dashboard');
+        // Check if user is an owner
+        if (role === 'owner') {
+          // Store the token and user data
+          login(res.data.token, res.data.user);
+          // Show success message about pending approval
+          setSuccessMessage('Registration successful! Your owner account is pending approval. You will be notified once an administrator approves your account.');
+          // Don't redirect yet
+          setLoading(false);
+        } else {
+          // Pass token and user data to login function for other roles
+          login(res.data.token, res.data.user);
+          console.log('User registered successfully:', res.data.user);
+          navigate('/dashboard');
+        }
       } else {
         setError('Registration failed. Please try again.');
         console.error('Registration failed - no token in response');
@@ -78,7 +91,7 @@ const Register = () => {
         setError('An error occurred. Please try again later.');
       }
     } finally {
-      setLoading(false);
+      if (!successMessage) setLoading(false);
     }
   };
 
@@ -127,113 +140,131 @@ const Register = () => {
                 </div>
               )}
               
-              <form className="space-y-6" onSubmit={handleSubmit}>
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                    Full Name
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      id="name"
-                      name="name"
-                      type="text"
-                      required
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                      placeholder="John Doe"
-                      value={name}
-                      onChange={handleChange}
-                    />
+              {successMessage && (
+                <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6" role="alert">
+                  <p>{successMessage}</p>
+                  <div className="mt-4">
+                    <Link to="/login" className="font-medium text-green-600 hover:text-green-500">
+                      Go to login page
+                    </Link>
                   </div>
                 </div>
-
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                    Email address
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      id="email"
-                      name="email"
-                      type="email"
-                      autoComplete="email"
-                      required
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                      placeholder="you@example.com"
-                      value={email}
-                      onChange={handleChange}
-                    />
+              )}
+              
+              {!successMessage && (
+                <form className="space-y-6" onSubmit={handleSubmit}>
+                  <div>
+                    <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                      Full Name
+                    </label>
+                    <div className="mt-1">
+                      <input
+                        id="name"
+                        name="name"
+                        type="text"
+                        required
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        placeholder="John Doe"
+                        value={name}
+                        onChange={handleChange}
+                      />
+                    </div>
                   </div>
-                </div>
 
-                <div>
-                  <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-                    I am a
-                  </label>
-                  <div className="mt-1">
-                    <select
-                      id="role"
-                      name="role"
-                      value={role}
-                      onChange={handleChange}
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                      Email address
+                    </label>
+                    <div className="mt-1">
+                      <input
+                        id="email"
+                        name="email"
+                        type="email"
+                        autoComplete="email"
+                        required
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        placeholder="you@example.com"
+                        value={email}
+                        onChange={handleChange}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="role" className="block text-sm font-medium text-gray-700">
+                      I am a
+                    </label>
+                    <div className="mt-1">
+                      <select
+                        id="role"
+                        name="role"
+                        value={role}
+                        onChange={handleChange}
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      >
+                        <option value="renter">Renter - Looking for a property</option>
+                        <option value="owner">Owner - Listing my property</option>
+                      </select>
+                    </div>
+                    {role === 'owner' && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        Note: Owner accounts require admin approval before they can list properties.
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                      Password
+                    </label>
+                    <div className="mt-1">
+                      <input
+                        id="password"
+                        name="password"
+                        type="password"
+                        autoComplete="new-password"
+                        required
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={handleChange}
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">Password must be at least 6 characters</p>
+                  </div>
+
+                  <div>
+                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                      Confirm Password
+                    </label>
+                    <div className="mt-1">
+                      <input
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        type="password"
+                        autoComplete="new-password"
+                        required
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        placeholder="••••••••"
+                        value={confirmPassword}
+                        onChange={handleChange}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                        loading ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500'
+                      }`}
                     >
-                      <option value="renter">Renter - Looking for a property</option>
-                      <option value="owner">Owner - Listing my property</option>
-                    </select>
+                      {loading ? 'Creating Account...' : 'Create Account'}
+                    </button>
                   </div>
-                </div>
-
-                <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                    Password
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      id="password"
-                      name="password"
-                      type="password"
-                      autoComplete="new-password"
-                      required
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">Password must be at least 6 characters</p>
-                </div>
-
-                <div>
-                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                    Confirm Password
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      id="confirmPassword"
-                      name="confirmPassword"
-                      type="password"
-                      autoComplete="new-password"
-                      required
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                      placeholder="••••••••"
-                      value={confirmPassword}
-                      onChange={handleChange}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
-                      loading ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500'
-                    }`}
-                  >
-                    {loading ? 'Creating Account...' : 'Create Account'}
-                  </button>
-                </div>
-              </form>
+                </form>
+              )}
             </div>
           </div>
         </div>

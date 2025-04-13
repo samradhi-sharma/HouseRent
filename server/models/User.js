@@ -27,6 +27,12 @@ const userSchema = new mongoose.Schema({
     enum: ['renter', 'owner', 'admin'],
     default: 'renter'
   },
+  isApproved: {
+    type: Boolean,
+    default: function() {
+      return this.role !== 'owner'; // Only owners need approval
+    }
+  },
   createdAt: {
     type: Date,
     default: Date.now

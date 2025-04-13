@@ -100,7 +100,8 @@ export const AuthProvider = ({ children }) => {
                   id: res.data.data._id,
                   name: res.data.data.name,
                   email: res.data.data.email,
-                  role: res.data.data.role
+                  role: res.data.data.role,
+                  isApproved: res.data.data.isApproved
                 };
                 localStorage.setItem('user', JSON.stringify(userData));
                 setUser(userData);
@@ -176,7 +177,8 @@ export const AuthProvider = ({ children }) => {
         role: user?.role || null,
         isRenter: user?.role === 'renter',
         isOwner: user?.role === 'owner',
-        isAdmin: user?.role === 'admin'
+        isAdmin: user?.role === 'admin',
+        isApprovedOwner: user?.role === 'owner' && user?.isApproved === true
       }}
     >
       {!loading && children}

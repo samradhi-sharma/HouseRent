@@ -222,10 +222,16 @@ const RenterDashboard = () => {
                           </p>
                           <Link
                             to={`/properties/${property._id}`}
-                            className="block w-full text-center bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded"
+                            className="block w-full text-center bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded mb-2"
                           >
                             View Details
                           </Link>
+                          {/* <Link
+                            to="/property-test"
+                            className="block w-full text-center bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded"
+                          >
+                            Test Details Page
+                          </Link> */}
                         </div>
                       </div>
                     ))

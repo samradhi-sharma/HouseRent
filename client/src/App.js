@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './components/Login';
 import Register from './components/Register';
@@ -7,80 +7,46 @@ import Home from './components/Home';
 import RenterDashboard from './components/renter/RenterDashboard';
 import PropertyDetail from './components/properties/PropertyDetail';
 import Dashboard from './components/Dashboard'; // Fallback dashboard
+import AdminDashboard from './components/admin/AdminDashboard'; // Admin dashboard
+import OwnerDashboard from './components/owner/OwnerDashboard'; // Owner dashboard
+import PropertyForm from './components/owner/PropertyForm'; // Property form for add/edit
 import Troubleshoot from './components/Troubleshoot'; // Add troubleshooting component
-
-// Protected Route component
-const ProtectedRoute = ({ children, allowedRoles = [] }) => {
-  const { isAuthenticated, loading, user } = useAuth();
-  console.log('ProtectedRoute:', { isAuthenticated, loading, userRole: user?.role, allowedRoles });
-  
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen bg-white">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  // Check if user is authenticated
-  if (!isAuthenticated) {
-    console.log('User not authenticated, redirecting to login');
-    return <Navigate to="/login" />;
-  }
-  
-  // Check if role is allowed (if roles are specified)
-  if (allowedRoles.length > 0 && !allowedRoles.includes(user?.role)) {
-    console.log(`User role ${user?.role} not in allowed roles:`, allowedRoles);
-    return <Navigate to="/dashboard" />;
-  }
-  
-  console.log('ProtectedRoute - access granted');
-  return children;
-};
+import RoleProtectedRoute from './components/common/RoleProtectedRoute';
+import { redirectToDashboard } from './utils/authRedirect';
 
 // Dashboard component to redirect based on role
 const DashboardRouter = () => {
   const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   
   console.log("DashboardRouter - User:", user);
   console.log("DashboardRouter - isAuthenticated:", isAuthenticated);
   
-  if (!isAuthenticated) {
-    console.log("User not authenticated in DashboardRouter");
-    return <Navigate to="/login" />;
-  }
+  useEffect(() => {
+    if (!isAuthenticated) {
+      console.log("User not authenticated in DashboardRouter");
+      navigate('/login');
+      return;
+    }
+    
+    if (!user) {
+      console.log("No user data in DashboardRouter");
+      return;
+    }
+    
+    // Use the redirect utility to handle role-based redirection
+    redirectToDashboard(user, navigate);
+  }, [user, isAuthenticated, navigate]);
   
-  if (!user) {
-    console.log("No user data in DashboardRouter");
-    return (
-      <div className="flex justify-center items-center h-screen bg-white">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading user data...</p>
-        </div>
+  // Show loading while redirecting
+  return (
+    <div className="flex justify-center items-center h-screen bg-white">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-600 mx-auto"></div>
+        <p className="mt-4 text-gray-600">Loading dashboard...</p>
       </div>
-    );
-  }
-  
-  if (user.role === 'renter') {
-    console.log("Directing to RenterDashboard");
-    return <RenterDashboard />;
-  } else if (user.role === 'owner') {
-    console.log("Directing to Owner Dashboard");
-    // Navigate to owner dashboard when implemented
-    return <Dashboard />;
-  } else if (user.role === 'admin') {
-    console.log("Directing to Admin Dashboard");
-    // Navigate to admin dashboard when implemented
-    return <Dashboard />;
-  }
-  
-  console.log("No role match, defaulting to generic Dashboard");
-  // Default fallback
-  return <Dashboard />;
+    </div>
+  );
 };
 
 function App() {
@@ -97,26 +63,48 @@ function App() {
             
             {/* Dashboard router */}
             <Route path="/dashboard" element={
-              <ProtectedRoute>
+              <RoleProtectedRoute>
                 <DashboardRouter />
-              </ProtectedRoute>
+              </RoleProtectedRoute>
             } />
             
             {/* Renter routes */}
-            <Route path="/renter/dashboard" element={
-              <ProtectedRoute allowedRoles={['renter']}>
+            <Route path="/renter-dashboard" element={
+              <RoleProtectedRoute requiredRoles="renter" redirectTo="/dashboard">
                 <RenterDashboard />
-              </ProtectedRoute>
+              </RoleProtectedRoute>
             } />
             
-            {/* Property routes */}
-            <Route path="/properties/:propertyId" element={
-              <ProtectedRoute>
-                <PropertyDetail />
-              </ProtectedRoute>
+            {/* Owner routes */}
+            <Route path="/owner-dashboard" element={
+              <RoleProtectedRoute requiredRoles="owner" redirectTo="/dashboard">
+                <OwnerDashboard />
+              </RoleProtectedRoute>
             } />
             
-            {/* Catch all */}
+            {/* Admin routes */}
+            <Route path="/admin-panel" element={
+              <RoleProtectedRoute requiredRoles="admin" redirectTo="/dashboard">
+                <AdminDashboard />
+              </RoleProtectedRoute>
+            } />
+            
+            {/* Property management routes */}
+            <Route path="/properties/add" element={
+              <RoleProtectedRoute requiredRoles={['owner', 'admin']} redirectTo="/dashboard">
+                <PropertyForm />
+              </RoleProtectedRoute>
+            } />
+            <Route path="/properties/edit/:id" element={
+              <RoleProtectedRoute requiredRoles={['owner', 'admin']} redirectTo="/dashboard">
+                <PropertyForm />
+              </RoleProtectedRoute>
+            } />
+            
+            {/* Property detail route - must come after more specific routes */}
+            <Route path="/properties/:id" element={<PropertyDetail />} />
+            
+            {/* Fallback route */}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </div>

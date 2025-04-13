@@ -1,9 +1,40 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import axios from 'axios';
 
-function Home() {
+const Home = () => {
   const { isAuthenticated } = useAuth();
+  const [properties, setProperties] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchProperties = async () => {
+      try {
+        setLoading(true);
+        console.log('Fetching properties for Home page');
+        const res = await axios.get('/api/properties');
+        console.log('Home properties response:', res.data);
+        
+        if (res.data && res.data.data) {
+          console.log(`Found ${res.data.data.length} properties to display`);
+          res.data.data.forEach(p => console.log(`Property: ${p.title}, isApproved: ${p.isApproved}, status: ${p.status}`));
+          setProperties(res.data.data);
+        } else {
+          console.warn('Unexpected API response format:', res.data);
+        }
+        setError('');
+      } catch (err) {
+        console.error('Error fetching properties:', err);
+        setError('Failed to load properties');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchProperties();
+  }, []);
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" />;

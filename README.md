@@ -32,4 +32,21 @@ A full-stack application using MongoDB, Express.js, React.js, and Node.js.
 
    # Start client (from client directory)
    npm start
-   ``` 
+   ```
+5. Create an admin user (optional):
+   ```bash
+   # From the server directory
+   node seedAdmin.js
+   ```
+   This will create an admin user with:
+   - Email: admin@example.com
+   - Password: adminpassword
+   
+   You can use this account to access the admin dashboard and approve owner accounts.
+
+## Features
+
+- User Authentication (login/register)
+- User Roles: Renter, Owner, Admin
+- Property Listings
+- Admin Dashboard for Owner Approval 

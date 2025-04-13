@@ -10,6 +10,7 @@ const OwnerDashboard = () => {
   const [bookingsLoading, setBookingsLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('properties');
+  const [deleteConfirmation, setDeleteConfirmation] = useState(null);
   const { user, logout } = useAuth();
 
   useEffect(() => {
@@ -20,22 +21,30 @@ const OwnerDashboard = () => {
         const token = localStorage.getItem('token');
         
         if (!token) {
+          console.error('No token found in localStorage');
           throw new Error('Authentication token not found');
         }
         
-        const res = await axios.get('http://localhost:5000/api/properties/owner', {
+        console.log('Making API request to /api/properties/mine');
+        const res = await axios.get('/api/properties/mine', {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
         
-        console.log('Owner properties response:', res.data);
+        console.log('Owner properties response status:', res.status);
+        console.log('Owner properties response data:', JSON.stringify(res.data, null, 2));
         
         if (res.data && res.data.data) {
+          console.log(`Found ${res.data.data.length} properties`);
           setProperties(res.data.data);
+        } else {
+          console.warn('Response data is missing expected structure:', res.data);
         }
       } catch (err) {
         console.error('Error fetching owner properties:', err);
+        console.error('Error details:', err.response ? err.response.data : 'No response data');
+        console.error('Error status:', err.response ? err.response.status : 'No status');
         setError('Failed to load your properties. Please try again later.');
       } finally {
         setLoading(false);
@@ -52,16 +61,33 @@ const OwnerDashboard = () => {
           throw new Error('Authentication token not found');
         }
         
-        const res = await axios.get('http://localhost:5000/api/bookings/owner', {
-          headers: {
-            'Authorization': `Bearer ${token}`
+        // Try the new endpoint first, fall back to old endpoint if it fails
+        try {
+          const res = await axios.get('/api/bookings/for-owner', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          console.log('Owner bookings response from for-owner endpoint:', res.data);
+          
+          if (res.data && res.data.data) {
+            setBookings(res.data.data);
           }
-        });
-        
-        console.log('Owner bookings response:', res.data);
-        
-        if (res.data && res.data.data) {
-          setBookings(res.data.data);
+        } catch (forOwnerErr) {
+          console.log('for-owner endpoint failed, trying fallback endpoint');
+          // Try fallback to the original endpoint
+          const res = await axios.get('/api/bookings/owner', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          console.log('Owner bookings response from owner endpoint:', res.data);
+          
+          if (res.data && res.data.data) {
+            setBookings(res.data.data);
+          }
         }
       } catch (err) {
         console.error('Error fetching booking requests:', err);
@@ -83,8 +109,9 @@ const OwnerDashboard = () => {
         throw new Error('Authentication token not found');
       }
       
-      await axios.put(
-        `http://localhost:5000/api/bookings/${bookingId}/status`,
+      // Use PATCH instead of PUT for partial updates
+      await axios.patch(
+        `/api/bookings/${bookingId}/status`,
         { status: newStatus },
         {
           headers: {
@@ -125,6 +152,31 @@ const OwnerDashboard = () => {
     }
   };
 
+  const handleDeleteProperty = async (propertyId) => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (deleteConfirmation === propertyId) {
+        // User has confirmed deletion
+        await axios.delete(`/api/properties/${propertyId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        // Remove property from state
+        setProperties(properties.filter(property => property._id !== propertyId));
+        setDeleteConfirmation(null);
+      } else {
+        // First click - ask for confirmation
+        setDeleteConfirmation(propertyId);
+      }
+    } catch (err) {
+      console.error('Error deleting property:', err);
+      setError('Failed to delete property. Please try again later.');
+    }
+  };
+
   if (loading && bookingsLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -154,6 +206,56 @@ const OwnerDashboard = () => {
         {error && (
           <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
             <p>{error}</p>
+            <div className="mt-2">
+              <button 
+                onClick={async () => {
+                  try {
+                    // Test auth endpoint to diagnose issues
+                    const token = localStorage.getItem('token');
+                    const response = await axios.get('/api/properties/test-auth', {
+                      headers: {
+                        'Authorization': `Bearer ${token}`
+                      }
+                    });
+                    console.log('Auth test response:', response.data);
+                    
+                    // If auth works, try fetching properties again
+                    const fetchOwnerProperties = async () => {
+                      try {
+                        setLoading(true);
+                        console.log('Retrying fetch owner properties');
+                        
+                        const res = await axios.get('/api/properties/mine', {
+                          headers: {
+                            'Authorization': `Bearer ${token}`
+                          }
+                        });
+                        
+                        console.log('Retry response:', res.data);
+                        
+                        if (res.data && res.data.data) {
+                          setProperties(res.data.data);
+                          setError('');
+                        }
+                      } catch (err) {
+                        console.error('Retry failed:', err);
+                        setError('Authentication is working but property fetch still failed. Try logging out and back in.');
+                      } finally {
+                        setLoading(false);
+                      }
+                    };
+                    
+                    fetchOwnerProperties();
+                  } catch (err) {
+                    console.error('Auth test failed:', err);
+                    setError('Authentication issue detected. Please try logging out and back in.');
+                  }
+                }}
+                className="text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Refresh Properties
+              </button>
+            </div>
           </div>
         )}
 
@@ -230,12 +332,24 @@ const OwnerDashboard = () => {
                           >
                             View
                           </Link>
-                          <Link
-                            to={`/properties/edit/${property._id}`}
-                            className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
-                          >
-                            Edit
-                          </Link>
+                          <div className="space-x-2">
+                            <Link
+                              to={`/properties/edit/${property._id}`}
+                              className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                            >
+                              Edit
+                            </Link>
+                            <button
+                              onClick={() => handleDeleteProperty(property._id)}
+                              className={`inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white ${
+                                deleteConfirmation === property._id
+                                  ? 'bg-red-600 hover:bg-red-700'
+                                  : 'bg-gray-600 hover:bg-gray-700'
+                              }`}
+                            >
+                              {deleteConfirmation === property._id ? 'Confirm' : 'Delete'}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -268,6 +382,9 @@ const OwnerDashboard = () => {
                         </th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Renter
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Message
                         </th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Date & Time
@@ -307,10 +424,15 @@ const OwnerDashboard = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">
-                              {booking.user?.name || 'Unknown user'}
+                              {booking.renter?.name || booking.contactInfo?.name || 'Unknown user'}
                             </div>
-                            <div className="text-sm text-gray-500">{booking.contactEmail}</div>
-                            <div className="text-sm text-gray-500">{booking.contactPhone}</div>
+                            <div className="text-sm text-gray-500">{booking.renter?.email || booking.contactInfo?.email}</div>
+                            <div className="text-sm text-gray-500">{booking.contactInfo?.phone}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-900 max-w-xs truncate">
+                              {booking.message}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
@@ -327,24 +449,37 @@ const OwnerDashboard = () => {
                             {new Date(booking.createdAt).toLocaleDateString()}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            {booking.status === 'pending' && (
+                            {booking.status === 'pending' ? (
                               <div className="flex space-x-2">
-                                <button
-                                  onClick={() => handleStatusUpdate(booking._id, 'approved')}
-                                  className="text-green-600 hover:text-green-900"
+                                <select
+                                  className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                                  value={booking.status}
+                                  onChange={(e) => handleStatusUpdate(booking._id, e.target.value)}
                                 >
-                                  Approve
-                                </button>
+                                  <option value="pending">Pending</option>
+                                  <option value="approved">Approve</option>
+                                  <option value="rejected">Reject</option>
+                                  <option value="cancelled">Cancel</option>
+                                </select>
+                              </div>
+                            ) : (
+                              <div className="flex items-center space-x-2">
+                                <span className="text-gray-500">Current: {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}</span>
                                 <button
-                                  onClick={() => handleStatusUpdate(booking._id, 'rejected')}
-                                  className="text-red-600 hover:text-red-900"
+                                  onClick={() => {
+                                    const newStatus = window.prompt(
+                                      `Change status from "${booking.status}" to:`, 
+                                      "Type 'pending', 'approved', 'rejected', or 'cancelled'"
+                                    );
+                                    if (newStatus && ['pending', 'approved', 'rejected', 'cancelled'].includes(newStatus.toLowerCase())) {
+                                      handleStatusUpdate(booking._id, newStatus.toLowerCase());
+                                    }
+                                  }}
+                                  className="text-indigo-600 hover:text-indigo-900"
                                 >
-                                  Reject
+                                  Change
                                 </button>
                               </div>
-                            )}
-                            {booking.status !== 'pending' && (
-                              <span className="text-gray-500">No actions available</span>
                             )}
                           </td>
                         </tr>
